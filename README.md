@@ -20,8 +20,8 @@
 
 We compare the 3D-aware ViT encoder from L2M (Stage 1) with other recent methods:
 
-- **DINOv2**
-- **FIT3D**
+- **DINOv2**: Learning Robust Visual Features without Supervision
+- **FiT3D**: Improving 2D Feature Representations by 3D-Aware Fine-Tuning
 - **Ours: L2M Encoder**
 
 <div align="center">
