@@ -143,7 +143,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ckpt_L2M",
-        default="ckpts/output_20250629/l2m_vit_base.pth",
+        default="ckpts/l2m_vit_base.pth",
         help="L2M Fit3D checkpoint"
     )
     parser.add_argument(

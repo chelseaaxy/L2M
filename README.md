@@ -24,8 +24,6 @@ We compare the 3D-aware ViT encoder from L2M (Stage 1) with other recent methods
 - **FIT3D**
 - **Ours: L2M Encoder**
 
-Below are feature comparison results on the Sacré-Cœur dataset:
-
 <div align="center">
   <img src="./assets/sacre_coeur_A_compare.png" width="90%">
   <br/>
@@ -44,7 +42,7 @@ python vis_feats.py \
   --img_paths assets/sacre_coeur_A.jpg assets/sacre_coeur_B.jpg \
   --ckpt_dino ckpts/dinov2.pth \
   --ckpt_fit3d ckpts/fit3d.pth \
-  --ckpt_L2M ckpts/output_20250629/l2m_vit_base.pth \
+  --ckpt_L2M ckpts/l2m_vit_base.pth \
   --save_dir outputs_vis_feat
 ```
 
@@ -56,4 +54,4 @@ Scripts for data generation will be released soon.
 
 ## 🙋‍♂️ Acknowledgements
 
-We build upon recent advances in ROMA and FIT3D.
+We build upon recent advances in [ROMA](https://github.com/Parskatt/RoMa) and [FiT3D](https://github.com/ywyue/FiT3D).
