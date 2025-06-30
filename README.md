@@ -12,7 +12,7 @@
 - **Stage 1:** Learn a **3D-aware ViT-based encoder** using multi-view image synthesis and 3D Gaussian feature representation.
 - **Stage 2:** Learn a **feature decoder** through novel-view rendering and synthetic data, enabling robust matching across diverse scenarios.
 
-> 🚧 Code under construction.
+> 🚧 Code is still under construction.
 
 ---
 
@@ -23,6 +23,8 @@ We compare the 3D-aware ViT encoder from L2M (Stage 1) with other recent methods
 - **DINOv2**: Learning Robust Visual Features without Supervision
 - **FiT3D**: Improving 2D Feature Representations by 3D-Aware Fine-Tuning
 - **Ours: L2M Encoder**
+
+You can download them from the [Releases](https://github.com/Sharpiless/L2M/releases/tag/checkpoints) page.
 
 <div align="center">
   <img src="./assets/sacre_coeur_A_compare.png" width="90%">

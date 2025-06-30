@@ -1,3 +1,4 @@
+
 import os
 import torch
 import torchvision.transforms as T
@@ -10,67 +11,60 @@ from romatch.models.transformer import vit_base
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-
 # -------------------- 可视化函数 --------------------
-def vis_feat_map(features, patch_h, patch_w, resize_hw=(560, 560)):
-    features = features.reshape(patch_h * patch_w, -1)
+def vis_feat_map_batch(features_list, patch_h, patch_w, resize_hw=(560, 560)):
+    all_feats = np.concatenate([f.reshape(patch_h * patch_w, -1) for f in features_list], axis=0)
     pca = PCA(n_components=3)
-    pca_feats = pca.fit_transform(features)
-    pca_feats = (pca_feats - pca_feats.mean(0)) / (pca_feats.std(0) + 1e-5)
-    pca_feats = np.clip(pca_feats * 0.5 + 0.5, 0, 1)
-    img = pca_feats.reshape(patch_h, patch_w, 3)
-    img = (img * 255).astype(np.uint8)
-    img = Image.fromarray(img)
-    return img.resize(resize_hw, Image.BICUBIC)
+    pca.fit(all_feats)
 
+    images = []
+    for features in features_list:
+        f = features.reshape(patch_h * patch_w, -1)
+        pca_feats = pca.transform(f)
+        pca_feats = (pca_feats - pca_feats.mean(0)) / (pca_feats.std(0) + 1e-5)
+        pca_feats = np.clip(pca_feats * 0.5 + 0.5, 0, 1)
+        img = pca_feats.reshape(patch_h, patch_w, 3)
+        img = (img * 255).astype(np.uint8)
+        img = Image.fromarray(img).resize(resize_hw, Image.BICUBIC)
+        images.append(img)
+    return images
 
-
-def save_all_visualizations(
-    feat_dino, feat_fit3d, feat_L2M,
-    patch_h, patch_w, base_name, save_dir, original_image=None
+def save_combined_visualization(
+    feats_dino, feats_fit3d, feats_L2M,
+    patch_h, patch_w, base_name, save_dir, original_images
 ):
     os.makedirs(save_dir, exist_ok=True)
 
-    # 单图保存
-    img_dino = vis_feat_map(feat_dino, patch_h, patch_w)
-    img_fit3d = vis_feat_map(feat_fit3d, patch_h, patch_w)
-    img_L2M = vis_feat_map(feat_L2M, patch_h, patch_w)
+    imgs_dino = vis_feat_map_batch(feats_dino, patch_h, patch_w)
+    imgs_fit3d = vis_feat_map_batch(feats_fit3d, patch_h, patch_w)
+    imgs_L2M = vis_feat_map_batch(feats_L2M, patch_h, patch_w)
 
-    img_dino.save(os.path.join(save_dir, f"{base_name}_dino.png"))
-    img_fit3d.save(os.path.join(save_dir, f"{base_name}_fit3d_fit3d.png"))
-    img_L2M.save(os.path.join(save_dir, f"{base_name}_L2M.png"))
-
-    # 拼图（含原图）
-    fig, ax = plt.subplots(1, 4, figsize=(16, 4))
-    for a, im, title in zip(
-        ax,
-        [original_image, img_dino, img_fit3d, img_L2M],
-        ["Original", "DINOv2", "Fit3D", "L2M (Ours)"]
-    ):
-        a.imshow(im)
-        a.set_title(title, fontsize=12)
-        a.axis("off")
+    # 拼图：每行一个图，共两行四列
+    fig, axs = plt.subplots(2, 4, figsize=(16, 8))
+    titles = ["Original", "DINOv2", "Fit3D", "L2M (Ours)"]
+    for i in range(2):  # row
+        row_imgs = [original_images[i], imgs_dino[i], imgs_fit3d[i], imgs_L2M[i]]
+        for j in range(4):
+            axs[i, j].imshow(row_imgs[j])
+            axs[i, j].set_title(titles[j], fontsize=12)
+            axs[i, j].axis("off")
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, f"{base_name}_compare.png"))
     plt.close()
-
 
 # -------------------- 特征提取函数 --------------------
 def extract_features(model, image_tensor):
     with torch.no_grad():
         return model.forward_features(image_tensor)["x_norm_patchtokens"].squeeze(0).cpu().numpy()
 
-
 # -------------------- 主脚本 --------------------
 def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
 
     patch_h, patch_w = 37, 37
-    img_size = patch_h * 14  # = 560
-    feat_dim = 768
+    img_size = patch_h * 14
 
     transform = T.Compose([
-        T.GaussianBlur(9, sigma=(0.1, 2.0)),
         T.Resize((img_size, img_size)),
         T.CenterCrop((img_size, img_size)),
         T.ToTensor(),
@@ -87,43 +81,38 @@ def main(args):
         block_chunks=0
     )
 
-    # DINOv2
-    dino = vit_base(**vit_kwargs).eval().to(device)
-    dino_ckpt_raw = torch.load(args.ckpt_dino, map_location="cpu")
-    dino_ckpt = {k.replace("model.", ""): v for k, v in dino_ckpt_raw.items()}
-    dino.load_state_dict(dino_ckpt, strict=False)
+    def load_model(ckpt_path):
+        model = vit_base(**vit_kwargs).eval().to(device)
+        raw = torch.load(ckpt_path, map_location="cpu")
+        if "model" in raw:
+            raw = raw["model"]
+        ckpt = {k.replace("model.", ""): v for k, v in raw.items()}
+        model.load_state_dict(ckpt, strict=False)
+        return model
 
-    # Fit3D
-    fit3d = vit_base(**vit_kwargs).eval().to(device)
-    fit3d_ckpt_raw = torch.load(args.ckpt_fit3d, map_location="cpu")["model"]
-    fit3d_ckpt = {k.replace("model.", ""): v for k, v in fit3d_ckpt_raw.items()}
-    fit3d.load_state_dict(fit3d_ckpt, strict=False)
+    dino = load_model(args.ckpt_dino)
+    fit3d = load_model(args.ckpt_fit3d)
+    L2M = load_model(args.ckpt_L2M)
 
-    # L2M (Ours)
-    L2M = vit_base(**vit_kwargs).eval().to(device)
-    L2M_ckpt = torch.load(args.ckpt_L2M, map_location="cpu")        
-    L2M.load_state_dict(L2M_ckpt, strict=False)
+    feats_dino, feats_fit3d, feats_L2M = [], [], []
+    original_images = []
 
-    for i, img_path in enumerate(args.img_paths):
+    for img_path in args.img_paths:
         img = Image.open(img_path).convert("RGB")
         x = transform(img).unsqueeze(0).to(device)
 
-        # 提取特征
-        feat_dino = extract_features(dino, x)
-        feat_fit3d = extract_features(fit3d, x)
-        feat_L2M = extract_features(L2M, x)
+        feats_dino.append(extract_features(dino, x))
+        feats_fit3d.append(extract_features(fit3d, x))
+        feats_L2M.append(extract_features(L2M, x))
+        original_images.append(img)
 
-        # 保存图
-        base_name = os.path.splitext(os.path.basename(img_path))[0]
-        save_all_visualizations(
-            feat_dino, feat_fit3d, feat_L2M,
-            patch_h, patch_w, base_name, args.save_dir,
-            original_image=img
-        )
+    base_name = "multi" if len(args.img_paths) > 1 else os.path.splitext(os.path.basename(args.img_paths[0]))[0]
+    save_combined_visualization(
+        feats_dino, feats_fit3d, feats_L2M,
+        patch_h, patch_w, base_name, args.save_dir, original_images
+    )
 
-
-        print(f"[{i+1}/{len(args.img_paths)}] Saved visualizations for {img_path}")
-
+    print(f"Saved 2-row comparison to {os.path.join(args.save_dir, f'{base_name}_compare.png')}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
