@@ -13,5 +13,3 @@ I kindly request that you:
 3. Cease any further misrepresentation of the authorship or ownership of the code.
 
 If this issue is not resolved promptly, I may have to take further action through GitHub’s DMCA takedown process to protect my rights.
-
-Thank you for your understanding and cooperation.
